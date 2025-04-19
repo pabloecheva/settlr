@@ -29,6 +29,7 @@ import { createEscrowContract } from "@/app/utils/firestore"
 import { useAuth } from "@/app/hooks/useAuth"
 import { toast } from "sonner"
 import { EscrowParticipant } from "@/app/types/database"
+import { generateEscrowDocument } from "@/app/utils/openai"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -36,7 +37,7 @@ const formSchema = z.object({
   createdAt: z.string().min(1, "Creation date is required"),
   expiresAt: z.string().min(1, "Expiration date is required"),
   keyPoints: z.string().min(1, "Key points are required"),
-  party1Email: z.string().email("Invalid email address"),
+  party1Email: z.string().optional(),
   party1Role: z.enum(["buyer", "seller"] as const),
   party2Email: z.string().email("Invalid email address"),
   party2Role: z.enum(["buyer", "seller"] as const),
@@ -62,6 +63,12 @@ export function CreateEscrowDialog() {
     },
   })
 
+  React.useEffect(() => {
+    if (user?.email) {
+      form.setValue('party1Email', user.email)
+    }
+  }, [user, form])
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       if (!user) {
@@ -80,7 +87,7 @@ export function CreateEscrowDialog() {
         role: values.party1Role,
         hasApproved: false,
         lastUpdated: new Date(),
-        keypoints: keyPoints,
+        keyPoints: keyPoints,
       }
 
       const party2: EscrowParticipant = {
@@ -89,31 +96,53 @@ export function CreateEscrowDialog() {
         role: values.party2Role,
         hasApproved: false,
         lastUpdated: new Date(),
-        keypoints: [], // Will be set when they review and approve
+        keyPoints: [], // Will be set when they review and approve
       }
+
+      // Prepare data for OpenAI
+      const openAiData = {
+        buyer: values.party1Role === 'buyer' ? values.party1Email : values.party2Email,
+        seller: values.party1Role === 'seller' ? values.party1Email : values.party2Email,
+        amount: parseFloat(values.value.replace(/[^0-9.-]+/g, "")),
+        currency: "USD",
+        terms: keyPoints,
+        conditions: [],
+        releaseConditions: [],
+        disputeResolution: "",
+      }
+
+      // Generate documents using OpenAI
+      const [summary, contract, legal, deployment] = await Promise.all([
+        generateEscrowDocument('summary', openAiData, 'new'),
+        generateEscrowDocument('solidity', openAiData, 'new'),
+        generateEscrowDocument('pdf_contract', openAiData, 'new'),
+        generateEscrowDocument('deployment_script', openAiData, 'new')
+      ]);
 
       const escrowData = {
         title: values.title,
         amount: parseFloat(values.value.replace(/[^0-9.-]+/g, "")),
-        currency: "USD",
-        terms: [],
-        conditions: [],
-        releaseConditions: [],
-        disputeResolution: "",
-        participants: [party1, party2],
-        documents: {
-          contractPdf: "",
-          smartContract: "",
-          summary: "",
-        },
+        contractAddress: "",
+        contractpdf: legal.content,
+        current: "pending",
         expiresAt: values.expiresAt ? new Date(values.expiresAt) : undefined,
+        participants: [party1, party2],
+        releaseConditions: [],
+        smartContract: contract.content,
+        status: "pending",
+        summary: summary.content,
+        terms: keyPoints,
+        transactionHash: "",
       }
 
-      await createEscrowContract(escrowData)
+      const escrowId = await createEscrowContract(escrowData)
       toast.success("Escrow created successfully")
       setOpen(false)
       form.reset()
       setFiles([])
+
+      // Redirect to the new escrow page
+      window.location.href = `/escrow/${escrowId}`
     } catch (error) {
       console.error("Error creating escrow:", error)
       toast.error("Failed to create escrow")
