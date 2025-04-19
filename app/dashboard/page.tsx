@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { EscrowList } from "@/components/EscrowList"
 import { CreateEscrowDialog } from "@/components/CreateEscrowDialog"
-import { TransactionsList } from "@/components/TransactionsList"
+import { useAuth } from '@/app/hooks/useAuth';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/app/lib/firebase';
 import { 
   ChevronDown, 
   Filter, 
@@ -16,9 +18,59 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react"
-import { TestDataFetch } from '@/components/TestDataFetch'
+
+interface Transaction {
+  id: string;
+  title: string;
+  participants: string[];
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: { seconds: number };
+  expiresAt: { seconds: number };
+  terms: string[];
+  releaseConditions: string[];
+}
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchTransactions() {
+      if (!user?.email) return;
+
+      try {
+        const usersRef = collection(db, 'Users');
+        const userQuery = query(usersRef, where('Email', '==', user.email));
+        const userSnapshot = await getDocs(userQuery);
+
+        if (!userSnapshot.empty) {
+          const userDoc = userSnapshot.docs[0];
+          const transactionsRef = collection(userDoc.ref, 'transactions');
+          const transactionsSnapshot = await getDocs(transactionsRef);
+
+          const fetchedTransactions = transactionsSnapshot.docs.map(doc => {
+            const data = doc.data() as Transaction;
+            return {
+              ...data,
+              id: doc.id
+            };
+          });
+
+          setTransactions(fetchedTransactions);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching transactions:', err);
+        setLoading(false);
+      }
+    }
+
+    fetchTransactions();
+  }, [user]);
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">
@@ -95,7 +147,9 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Active Escrows</p>
-                      <h3 className="mt-1 text-2xl font-semibold">12</h3>
+                      <h3 className="mt-1 text-2xl font-semibold">
+                        {transactions.filter(t => t.status === 'active').length}
+                      </h3>
                     </div>
                     <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
@@ -107,7 +161,9 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Pending Review</p>
-                      <h3 className="mt-1 text-2xl font-semibold">17</h3>
+                      <h3 className="mt-1 text-2xl font-semibold">
+                        {transactions.filter(t => t.status === 'pending').length}
+                      </h3>
                     </div>
                     <div className="flex items-center text-sm text-destructive">
                       <ArrowDownRight className="h-4 w-4" />
@@ -119,7 +175,9 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Value Locked</p>
-                      <h3 className="mt-1 text-2xl font-semibold">$13.5M</h3>
+                      <h3 className="mt-1 text-2xl font-semibold">
+                        {transactions.reduce((sum, t) => sum + t.amount, 0)} ETH
+                      </h3>
                     </div>
                     <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
@@ -131,7 +189,9 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Completed</p>
-                      <h3 className="mt-1 text-2xl font-semibold">573</h3>
+                      <h3 className="mt-1 text-2xl font-semibold">
+                        {transactions.filter(t => t.status === 'completed').length}
+                      </h3>
                     </div>
                     <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
@@ -142,17 +202,76 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Escrow list */}
+            {/* Transactions Table */}
             <div className="space-y-4">
-              <EscrowList />
+              <div className="rounded-lg border">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title & Parties</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Key Points</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-center">
+                          Loading transactions...
+                        </td>
+                      </tr>
+                    ) : transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-center">
+                          No transactions found
+                        </td>
+                      </tr>
+                    ) : (
+                      transactions.map((transaction) => (
+                        <tr key={transaction.id}>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">{transaction.title}</div>
+                            <div className="text-sm text-gray-500">{transaction.participants.join(', ')}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <ul className="text-sm text-gray-500 list-disc list-inside">
+                              {transaction.releaseConditions?.map((condition, i) => (
+                                <li key={i}>{condition}</li>
+                              ))}
+                              {transaction.terms?.map((term, i) => (
+                                <li key={`term-${i}`}>{term}</li>
+                              ))}
+                            </ul>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">
+                              {transaction.amount} {transaction.currency}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              ${transaction.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                'bg-gray-100 text-gray-800'}`}>
+                              {transaction.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {new Date(transaction.createdAt.seconds * 1000).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {new Date(transaction.expiresAt.seconds * 1000).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-4">Your Transactions</h2>
-              <TransactionsList />
-            </section>
-
-            <TestDataFetch />
           </div>
         </main>
       </div>
