@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/app/hooks/useAuth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/app/lib/firebase';
 
 export function TestDataFetch() {
   const { user, loading } = useAuth();

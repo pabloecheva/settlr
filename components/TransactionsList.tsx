@@ -276,7 +276,7 @@ export function TransactionsList() {
                   </ul>
                 </TableCell>
                 <TableCell>
-                  {transaction.amount} {transaction.current || 'USD'}
+                  {transaction.amount} {transaction.current || 'ETH'}
                 </TableCell>
                 <TableCell>
                   <Badge variant={getStatusVariant(transaction.status)}>
