@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isPartyInTransaction(transaction) {
+      return transaction.data.parties.hasAny([request.auth.uid]);
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && isUser(userId);
+      allow create: if isAuthenticated() && isUser(userId);
+      allow update: if isAuthenticated() && isUser(userId);
+      allow delete: if false; // Users cannot be deleted
+    }
+    
+    // Transactions collection rules
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.createdBy == request.auth.uid ||
+        isPartyInTransaction(resource)
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.createdBy == request.auth.uid ||
+        isPartyInTransaction(resource)
+      );
+      allow delete: if false; // Transactions cannot be deleted
+    }
+    
+    // Contracts collection rules
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.createdBy == request.auth.uid ||
+        isPartyInTransaction(get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)))
+      );
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/transactions/$(request.resource.data.transactionId)).data.createdBy == request.auth.uid;
+      allow update: if isAuthenticated() && 
+        get(/databases/$(database)/documents/transactions/$(resource.data.transactionId)).data.createdBy == request.auth.uid;
+      allow delete: if false; // Contracts cannot be deleted
+    }
+  }
+} 
