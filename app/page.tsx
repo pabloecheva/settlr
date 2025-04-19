@@ -3,12 +3,13 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChange } from '@/app/utils/firebase-auth'
+import type { User } from 'firebase/auth'
 
 export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((user) => {
+    const unsubscribe = onAuthStateChange((user: User | null) => {
       if (user) {
         // If user is logged in, redirect to dashboard
         router.push('/dashboard')
