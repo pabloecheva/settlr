@@ -11,6 +11,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { generateEscrowDocument } from '@/app/utils/openai';
 import { EscrowContract } from '@/app/utils/firestore';
+import { COLLECTIONS } from '@/app/types/database';
+import { toast } from 'sonner';
+import { useAuth } from '@/app/hooks/useAuth';
 
 interface MissingInfo {
   field: string;
@@ -26,10 +29,12 @@ interface GeneratedDocuments {
 }
 
 export default function EscrowDetailsPage({ params }: { params: { id: string } }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('summary');
   const [signature, setSignature] = useState('');
   const [documents, setDocuments] = useState<GeneratedDocuments>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [escrowData, setEscrowData] = useState<EscrowContract | null>(null);
   
   const [missingInfo] = useState<MissingInfo[]>([
     {
@@ -50,56 +55,63 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
   ]);
 
   useEffect(() => {
-    async function fetchEscrowData() {
+    async function fetchTransactionData() {
+      if (!user?.uid) {
+        toast.error("User not authenticated.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!params.id) {
+        toast.error("Transaction ID missing.");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`Fetching transaction ${params.id} for user ${user.uid}`);
+
       try {
-        const escrowRef = doc(db, 'escrows', params.id);
-        const escrowDoc = await getDoc(escrowRef);
+        const transactionRef = doc(
+          db,
+          COLLECTIONS.USERS,
+          user.uid,
+          COLLECTIONS.TRANSACTIONS,
+          params.id
+        );
         
-        if (!escrowDoc.exists()) {
-          console.error('Escrow not found');
+        const transactionDoc = await getDoc(transactionRef);
+        
+        if (!transactionDoc.exists()) {
+          console.error('Escrow transaction document not found at path:', transactionRef.path);
+          toast.error('Escrow transaction not found.');
+          setIsLoading(false);
           return;
         }
 
-        const escrowData = escrowDoc.data() as EscrowContract;
-        
-        // Transform the data into the format expected by OpenAI
-        const openAiData = {
-          buyer: escrowData.participants.find(p => p.role === 'buyer')?.email || '',
-          seller: escrowData.participants.find(p => p.role === 'seller')?.email || '',
-          amount: escrowData.amount,
-          currency: 'USD', // Default to USD for now
-          terms: escrowData.terms || [],
-          conditions: [], // Add conditions if needed
-          releaseConditions: escrowData.releaseConditions || [],
-          disputeResolution: '', // Add dispute resolution if needed
-        };
-        
-        // Generate documents using OpenAI
-        const [summary, contract, legal, deployment] = await Promise.all([
-          generateEscrowDocument('summary', openAiData, params.id),
-          generateEscrowDocument('solidity', openAiData, params.id),
-          generateEscrowDocument('pdf_contract', openAiData, params.id),
-          generateEscrowDocument('deployment_script', openAiData, params.id)
-        ]);
+        const data = transactionDoc.data() as EscrowContract;
+        setEscrowData(data);
+        console.log("Fetched escrow data:", data);
 
         setDocuments({
-          summary: summary.content,
-          contract: contract.content,
-          legal: legal.content,
-          deployment: deployment.content
+          summary: data.summary || '',
+          contract: data.smartContract || '',
+          legal: data.contractpdf || '',
+          deployment: '',
         });
+
       } catch (error) {
         console.error('Error fetching escrow data:', error);
+        toast.error('Error fetching escrow data');
       } finally {
         setIsLoading(false);
       }
     }
 
-    fetchEscrowData();
-  }, [params.id]);
+    fetchTransactionData();
+  }, [params.id, user?.uid]);
 
   const handleDeploy = async () => {
-    // This will handle deployment and signing
+    toast.info('Preparing to deploy contract...');
     console.log('Deploying contract...');
   };
 
@@ -113,7 +125,9 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Escrow Details</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {escrowData?.title || 'Escrow Details'}
+      </h1>
       
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2">
@@ -128,7 +142,7 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
             <TabsContent value="summary" className="mt-6">
               <Card className="p-6">
                 <h2 className="text-xl font-semibold mb-4">Deal Summary</h2>
-                <div className="prose">
+                <div className="whitespace-pre-wrap">
                   {documents.summary ? (
                     <div dangerouslySetInnerHTML={{ __html: documents.summary }} />
                   ) : (
@@ -152,7 +166,7 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
             <TabsContent value="legal" className="mt-6">
               <Card className="p-6">
                 <h2 className="text-xl font-semibold mb-4">Legal Documentation</h2>
-                <div className="prose">
+                <div className="whitespace-pre-wrap">
                   {documents.legal ? (
                     <div dangerouslySetInnerHTML={{ __html: documents.legal }} />
                   ) : (
@@ -176,7 +190,6 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
         </div>
 
         <div className="space-y-6">
-          {/* Missing Information Panel */}
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Required Information</h2>
             <div className="space-y-4">
@@ -195,7 +208,6 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
             </div>
           </Card>
 
-          {/* Signature Panel */}
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Digital Signature</h2>
             <div className="space-y-4">
@@ -211,11 +223,9 @@ export default function EscrowDetailsPage({ params }: { params: { id: string } }
             </div>
           </Card>
 
-          {/* Deploy & Sign Button */}
           <Button 
             className="w-full py-6 text-lg"
             onClick={handleDeploy}
-            disabled={!signature || missingInfo.some(info => info.required && !info.field)}
           >
             Deploy & Sign Contract
           </Button>

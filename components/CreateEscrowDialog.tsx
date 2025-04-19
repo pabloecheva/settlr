@@ -30,6 +30,7 @@ import { useAuth } from "@/app/hooks/useAuth"
 import { toast } from "sonner"
 import { EscrowParticipant } from "@/app/types/database"
 import { generateEscrowDocument } from "@/app/utils/openai"
+import { Timestamp } from "firebase/firestore"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -46,6 +47,7 @@ const formSchema = z.object({
 export function CreateEscrowDialog() {
   const [open, setOpen] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
+  const [isLoading, setIsLoading] = React.useState(false)
   const { user } = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -71,8 +73,22 @@ export function CreateEscrowDialog() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      setIsLoading(true)
       if (!user) {
         toast.error("You must be logged in to create an escrow")
+        return
+      }
+
+      // Ensure we have valid email addresses
+      if (!values.party1Email) {
+        toast.error("Your email is required")
+        setIsLoading(false)
+        return
+      }
+
+      if (!values.party2Email) {
+        toast.error("Other party email is required")
+        setIsLoading(false)
         return
       }
 
@@ -83,7 +99,7 @@ export function CreateEscrowDialog() {
 
       const party1: EscrowParticipant = {
         userId: user.uid,
-        email: values.party1Email,
+        email: values.party1Email || user.email || '', // Ensure it's never undefined
         role: values.party1Role,
         hasApproved: false,
         lastUpdated: new Date(),
@@ -92,22 +108,25 @@ export function CreateEscrowDialog() {
 
       const party2: EscrowParticipant = {
         userId: "", // Will be set when they first sign in
-        email: values.party2Email,
+        email: values.party2Email, // Validated above
         role: values.party2Role,
         hasApproved: false,
         lastUpdated: new Date(),
         keyPoints: [], // Will be set when they review and approve
       }
 
-      // Prepare data for OpenAI
+      const buyerEmail = values.party1Role === 'buyer' ? values.party1Email : values.party2Email;
+      const sellerEmail = values.party1Role === 'seller' ? values.party1Email : values.party2Email;
+
+      // Prepare data for OpenAI with proper type handling
       const openAiData = {
-        buyer: values.party1Role === 'buyer' ? values.party1Email : values.party2Email,
-        seller: values.party1Role === 'seller' ? values.party1Email : values.party2Email,
+        buyer: (values.party1Role === 'buyer' ? values.party1Email : values.party2Email) as string,
+        seller: (values.party1Role === 'seller' ? values.party1Email : values.party2Email) as string,
         amount: parseFloat(values.value.replace(/[^0-9.-]+/g, "")),
         currency: "USD",
         terms: keyPoints,
-        conditions: [],
-        releaseConditions: [],
+        conditions: [] as string[],
+        releaseConditions: [] as string[],
         disputeResolution: "",
       }
 
@@ -119,23 +138,27 @@ export function CreateEscrowDialog() {
         generateEscrowDocument('deployment_script', openAiData, 'new')
       ]);
 
-      const escrowData = {
+      // Prepare data for Firestore, including the creatorUserId
+      const escrowDataForFirestore = {
         title: values.title,
         amount: parseFloat(values.value.replace(/[^0-9.-]+/g, "")),
-        contractAddress: "",
+        contractAddress: "", // Initially empty
         contractpdf: legal.content,
-        current: "pending",
-        expiresAt: values.expiresAt ? new Date(values.expiresAt) : undefined,
+        current: "pending", // Use 'current' if that's the field name, otherwise maybe 'status'?
+        expiresAt: values.expiresAt ? Timestamp.fromDate(new Date(values.expiresAt)) : null, // Convert to Timestamp
         participants: [party1, party2],
-        releaseConditions: [],
+        releaseConditions: [] as string[],
         smartContract: contract.content,
-        status: "pending",
+        status: "pending" as EscrowContract['status'], // Explicitly cast status to the correct type
         summary: summary.content,
         terms: keyPoints,
-        transactionHash: "",
+        transactionHash: "", // Initially empty
+        creatorUserId: user.uid, // Add creator's user ID
       }
 
-      const escrowId = await createEscrowContract(escrowData)
+      // Call the updated createEscrowContract
+      const escrowId = await createEscrowContract(escrowDataForFirestore)
+
       toast.success("Escrow created successfully")
       setOpen(false)
       form.reset()
@@ -145,7 +168,11 @@ export function CreateEscrowDialog() {
       window.location.href = `/escrow/${escrowId}`
     } catch (error) {
       console.error("Error creating escrow:", error)
-      toast.error("Failed to create escrow")
+      // Provide more specific error feedback if possible
+      const errorMessage = error instanceof Error ? error.message : "Failed to create escrow";
+      toast.error(`Error: ${errorMessage}`);
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -330,7 +357,16 @@ export function CreateEscrowDialog() {
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create Escrow</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Escrow'
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

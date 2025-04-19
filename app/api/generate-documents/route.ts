@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { db } from '@/app/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { COLLECTIONS } from '@/app/types/database';
 
 // OpenAI client is initialized server-side only
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-const COLLECTIONS = {
-  CONTRACTS: 'contracts',
-  ESCROWS: 'escrows',
-  USERS: 'users'
-};
 
 export type DocumentType = 'pdf_contract' | 'summary' | 'solidity' | 'deployment_script';
 
@@ -47,7 +42,7 @@ export async function POST(request: NextRequest) {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      model: "gpt-4.1",
+      model: "gpt-4-0125-preview",
       temperature: 0.7,
     });
 
@@ -59,8 +54,8 @@ export async function POST(request: NextRequest) {
         type,
         content,
         dealId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
       });
 
       return NextResponse.json({

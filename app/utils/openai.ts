@@ -1,11 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
-
-export const COLLECTIONS = {
-  CONTRACTS: 'contracts',
-  ESCROWS: 'escrows',
-  USERS: 'users'
-} as const;
+import { COLLECTIONS } from '@/app/types/database';
 
 export type DocumentType = 'pdf_contract' | 'summary' | 'solidity' | 'deployment_script';
 

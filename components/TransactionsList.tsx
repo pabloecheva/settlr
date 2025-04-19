@@ -6,6 +6,7 @@ import { EscrowContract, getUserTransactionsWithProfiles } from '@/app/utils/fir
 import { Timestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { EscrowStatus } from '@/app/types/database';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -106,6 +107,7 @@ function validateTransaction(transaction: any, index: number) {
 
 export function TransactionsList() {
   const { user } = useAuth();
+  const router = useRouter();
   const [transactions, setTransactions] = useState<EscrowContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -253,7 +255,11 @@ export function TransactionsList() {
           </TableHeader>
           <TableBody>
             {transactions.map((transaction) => (
-              <TableRow key={transaction.id}>
+              <TableRow 
+                key={transaction.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => router.push(`/escrow/${transaction.id}`)}
+              >
                 <TableCell>
                   <div className="font-medium">{transaction.title || 'Untitled'}</div>
                   <div className="text-sm text-muted-foreground">
