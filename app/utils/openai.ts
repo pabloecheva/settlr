@@ -1,4 +1,20 @@
 import OpenAI from 'openai';
+import { getFirestore, collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { COLLECTIONS } from './firebase';
+import { initializeApp, getApps } from 'firebase/app';
+
+// Initialize Firebase if not already initialized
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const db = getFirestore(app);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,10 +34,20 @@ export interface EscrowData {
   // Add more fields as needed
 }
 
+export interface GeneratedDocument {
+  id?: string;
+  type: DocumentType;
+  content: string;
+  dealId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export async function generateEscrowDocument(
   type: DocumentType,
-  data: EscrowData
-): Promise<string> {
+  data: EscrowData,
+  dealId: string
+): Promise<GeneratedDocument> {
   try {
     const systemPrompt = getSystemPrompt(type);
     const userPrompt = formatUserPrompt(data);
@@ -35,12 +61,63 @@ export async function generateEscrowDocument(
       temperature: 0.7,
     });
 
-    return completion.choices[0]?.message?.content || "No response generated";
+    const content = completion.choices[0]?.message?.content || "No response generated";
+    
+    try {
+      // Save the generated document to Firestore
+      const docRef = await addDoc(collection(db, COLLECTIONS.CONTRACTS), {
+        type,
+        content,
+        dealId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      return {
+        id: docRef.id,
+        type,
+        content,
+        dealId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    } catch (firestoreError) {
+      console.error("Error saving to Firestore:", firestoreError);
+      // Return the document without Firestore ID if saving fails
+      return {
+        type,
+        content,
+        dealId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
   } catch (error) {
     console.error("Error generating document:", error);
     throw error;
   }
 }
+
+// Document operations
+export const documentStore = {
+  // Get documents by deal ID
+  async getDocumentsByDealId(dealId: string): Promise<GeneratedDocument[]> {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.CONTRACTS),
+        where('dealId', '==', dealId)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as GeneratedDocument[];
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      return [];
+    }
+  }
+};
 
 function getSystemPrompt(type: DocumentType): string {
   switch (type) {
