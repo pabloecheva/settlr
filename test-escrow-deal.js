@@ -1,7 +1,8 @@
 const OpenAI = require('openai');
+require('dotenv').config();
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Sample deal data with some missing information
@@ -43,7 +44,7 @@ async function validateAndPromptMissingInfo(dealData) {
           content: JSON.stringify(dealData, null, 2)
         }
       ],
-      model: "gpt-4.1",
+      model: "gpt-4",
       temperature: 0.7,
     });
 
@@ -76,7 +77,7 @@ Format the response as a complete, deployable Solidity file.`
           content: JSON.stringify(dealData, null, 2)
         }
       ],
-      model: "gpt-4.1",
+      model: "gpt-4",
       temperature: 0.7,
     });
 
@@ -108,7 +109,7 @@ Format the response in a clear, bullet-point style.`
           content: JSON.stringify(dealData, null, 2)
         }
       ],
-      model: "gpt-4.1",
+      model: "gpt-4",
       temperature: 0.7,
     });
 
@@ -117,6 +118,38 @@ Format the response in a clear, bullet-point style.`
     return completion.choices[0]?.message?.content;
   } catch (error) {
     console.error("Error generating deal summary:", error);
+    throw error;
+  }
+}
+
+async function generateDeploymentScript(contractCode, dealData) {
+  try {
+    const completion = await openai.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: `You are a blockchain developer. Create a deployment script for the provided smart contract that:
+1. Uses Hardhat or Truffle framework
+2. Includes all necessary constructor parameters
+3. Sets up proper network configuration
+4. Includes deployment verification steps
+5. Uses latest best practices
+Format the response as a complete JavaScript deployment script.`
+        },
+        {
+          role: "user",
+          content: `Contract Code:\n${contractCode}\n\nDeal Data:\n${JSON.stringify(dealData, null, 2)}`
+        }
+      ],
+      model: "gpt-4",
+      temperature: 0.7,
+    });
+
+    console.log("\n=== Deployment Script ===");
+    console.log(completion.choices[0]?.message?.content);
+    return completion.choices[0]?.message?.content;
+  } catch (error) {
+    console.error("Error generating deployment script:", error);
     throw error;
   }
 }
@@ -133,9 +166,12 @@ async function processEscrowDeal() {
     };
 
     // Step 3: Generate Solidity contract
-    await generateSolidityContract(completeDealData);
+    const contractCode = await generateSolidityContract(completeDealData);
 
-    // Step 4: Generate deal summary
+    // Step 4: Generate deployment script
+    await generateDeploymentScript(contractCode, completeDealData);
+
+    // Step 5: Generate deal summary
     await generateDealSummary(completeDealData);
 
   } catch (error) {
