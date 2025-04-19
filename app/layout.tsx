@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "Settlr - Smart Contract Escrow",
-  description: "Secure escrow management for smart contracts",
+  title: "Settlr",
+  description: "Escrow platform for secure transactions",
 };
 
 export default function RootLayout({
