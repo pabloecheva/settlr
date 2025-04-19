@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Settlr - Smart Contract Escrow Platform
 
-## Getting Started
+Settlr is a modern web application that leverages OpenAI's GPT-4 to automate and streamline the creation of escrow agreements for blockchain transactions, particularly focusing on NFT sales.
 
-First, run the development server:
+## Features
 
+- **AI-Powered Document Generation**
+  - Legal contracts in PDF format
+  - Solidity smart contracts
+  - Deployment scripts
+  - Transaction summaries
+  - Automated validation of escrow terms
+
+- **Smart Contract Integration**
+  - Secure escrow implementation
+  - NFT transfer verification
+  - ETH payment handling
+  - Dispute resolution mechanisms
+
+## Prerequisites
+
+- Node.js (v16 or higher)
+- OpenAI API key
+- Ethereum wallet and testnet ETH (for testing)
+
+## Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/pabloecheva/settlr.git
+cd settlr
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+Create a `.env.local` file in the root directory with the following:
+```
+OPENAI_API_KEY=your_api_key_here
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Usage
 
-## Learn More
+### Development Server
 
-To learn more about Next.js, take a look at the following resources:
+Run the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Testing
 
-## Deploy on Vercel
+Run the OpenAI integration test:
+```bash
+node test-openai.js
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Test the escrow deal generation:
+```bash
+node test-escrow-deal.js
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+- `/app` - Next.js application files
+  - `/components` - React components
+  - `/utils` - Utility functions and OpenAI integration
+- `/test-*.js` - Test files for various functionalities
+
+## API Integration
+
+### OpenAI Integration
+
+The project uses OpenAI's GPT-4 model for:
+- Validating escrow deal information
+- Generating legal documents
+- Creating Solidity smart contracts
+- Producing deployment scripts
+- Summarizing transactions
+
+### Smart Contract Features
+
+The generated smart contracts include:
+- OpenZeppelin contract integration
+- Secure payment handling
+- NFT transfer verification
+- Dispute resolution mechanisms
+- Best practices implementation
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Security
+
+- Never commit API keys or sensitive information
+- Always use environment variables for secrets
+- Follow smart contract security best practices
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- OpenAI for GPT-4 API
+- OpenZeppelin for smart contract libraries
+- Next.js team for the framework
