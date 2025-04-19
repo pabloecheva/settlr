@@ -25,14 +25,14 @@
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
     
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
-    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
     --warning: 38 92% 50%;
     --warning-foreground: 48 96% 89%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
@@ -66,8 +66,8 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 144.9 80.4% 10%;
  
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
@@ -84,34 +84,36 @@
   }
 }
 
-.stat-card {
-  @apply relative flex flex-col rounded-lg border bg-card p-4 shadow-sm;
-}
+@layer components {
+  .stat-card {
+    @apply relative flex flex-col rounded-lg border bg-card p-4 shadow-sm;
+  }
 
-.stat-value {
-  @apply mt-2 text-2xl font-semibold;
-}
+  .stat-value {
+    @apply mt-2 text-2xl font-semibold;
+  }
 
-.stat-label {
-  @apply text-sm font-medium text-muted-foreground;
-}
+  .stat-label {
+    @apply text-sm font-medium text-muted-foreground;
+  }
 
-.stat-change {
-  @apply text-xs text-muted-foreground flex items-center gap-1;
-}
+  .stat-change {
+    @apply text-xs text-muted-foreground flex items-center gap-1;
+  }
 
-.stat-change-positive {
-  @apply text-[hsl(var(--success))];
-}
+  .stat-change-positive {
+    @apply text-[hsl(var(--success))];
+  }
 
-.stat-change-negative {
-  @apply text-destructive;
-}
+  .stat-change-negative {
+    @apply text-destructive;
+  }
 
-.dashboard-grid {
-  @apply grid gap-4 md:grid-cols-2 lg:grid-cols-4;
-}
+  .dashboard-grid {
+    @apply grid gap-4 md:grid-cols-2 lg:grid-cols-4;
+  }
 
-.content-section {
-  @apply space-y-4;
+  .content-section {
+    @apply space-y-4;
+  }
 }

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { EscrowList } from "@/components/EscrowList"
 import { CreateEscrowDialog } from "@/components/CreateEscrowDialog"
+import { TransactionsList } from "@/components/TransactionsList"
 import { 
   ChevronDown, 
   Filter, 
@@ -15,6 +16,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react"
+import { TestDataFetch } from '@/components/TestDataFetch'
 
 export default function DashboardPage() {
   return (
@@ -95,7 +97,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">Active Escrows</p>
                       <h3 className="mt-1 text-2xl font-semibold">12</h3>
                     </div>
-                    <div className="flex items-center text-sm text-success">
+                    <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
                       <span>2.1%</span>
                     </div>
@@ -119,7 +121,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">Total Value Locked</p>
                       <h3 className="mt-1 text-2xl font-semibold">$13.5M</h3>
                     </div>
-                    <div className="flex items-center text-sm text-success">
+                    <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
                       <span>1.8%</span>
                     </div>
@@ -131,7 +133,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">Completed</p>
                       <h3 className="mt-1 text-2xl font-semibold">573</h3>
                     </div>
-                    <div className="flex items-center text-sm text-success">
+                    <div className="flex items-center text-sm text-emerald-500">
                       <ArrowUpRight className="h-4 w-4" />
                       <span>3.2%</span>
                     </div>
@@ -144,6 +146,13 @@ export default function DashboardPage() {
             <div className="space-y-4">
               <EscrowList />
             </div>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Your Transactions</h2>
+              <TransactionsList />
+            </section>
+
+            <TestDataFetch />
           </div>
         </main>
       </div>

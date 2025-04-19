@@ -25,6 +25,10 @@ import { Plus, Upload } from "lucide-react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import { createEscrowContract } from "@/app/utils/firestore"
+import { useAuth } from "@/app/hooks/useAuth"
+import { toast } from "sonner"
+import { EscrowParticipant } from "@/app/types/database"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -32,15 +36,16 @@ const formSchema = z.object({
   createdAt: z.string().min(1, "Creation date is required"),
   expiresAt: z.string().min(1, "Expiration date is required"),
   keyPoints: z.string().min(1, "Key points are required"),
-  party1Name: z.string().min(1, "Party 1 name is required"),
-  party1Role: z.string().min(1, "Party 1 role is required"),
-  party2Name: z.string().min(1, "Party 2 name is required"),
-  party2Role: z.string().min(1, "Party 2 role is required"),
+  party1Email: z.string().email("Invalid email address"),
+  party1Role: z.enum(["buyer", "seller"] as const),
+  party2Email: z.string().email("Invalid email address"),
+  party2Role: z.enum(["buyer", "seller"] as const),
 })
 
 export function CreateEscrowDialog() {
   const [open, setOpen] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
+  const { user } = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,19 +55,69 @@ export function CreateEscrowDialog() {
       createdAt: new Date().toISOString().split('T')[0],
       expiresAt: "",
       keyPoints: "",
-      party1Name: "",
-      party1Role: "",
-      party2Name: "",
-      party2Role: "",
+      party1Email: user?.email || "",
+      party1Role: "buyer",
+      party2Email: "",
+      party2Role: "seller",
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Here you would typically send the data to your backend
-    console.log(values, files)
-    setOpen(false)
-    form.reset()
-    setFiles([])
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      if (!user) {
+        toast.error("You must be logged in to create an escrow")
+        return
+      }
+
+      const keyPoints = values.keyPoints
+        .split('\n')
+        .map(point => point.trim())
+        .filter(point => point.length > 0)
+
+      const party1: EscrowParticipant = {
+        userId: user.uid,
+        email: values.party1Email,
+        role: values.party1Role,
+        hasApproved: false,
+        lastUpdated: new Date(),
+        keypoints: keyPoints,
+      }
+
+      const party2: EscrowParticipant = {
+        userId: "", // Will be set when they first sign in
+        email: values.party2Email,
+        role: values.party2Role,
+        hasApproved: false,
+        lastUpdated: new Date(),
+        keypoints: [], // Will be set when they review and approve
+      }
+
+      const escrowData = {
+        title: values.title,
+        amount: parseFloat(values.value.replace(/[^0-9.-]+/g, "")),
+        currency: "USD",
+        terms: [],
+        conditions: [],
+        releaseConditions: [],
+        disputeResolution: "",
+        participants: [party1, party2],
+        documents: {
+          contractPdf: "",
+          smartContract: "",
+          summary: "",
+        },
+        expiresAt: values.expiresAt ? new Date(values.expiresAt) : undefined,
+      }
+
+      await createEscrowContract(escrowData)
+      toast.success("Escrow created successfully")
+      setOpen(false)
+      form.reset()
+      setFiles([])
+    } catch (error) {
+      console.error("Error creating escrow:", error)
+      toast.error("Failed to create escrow")
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,12 +188,12 @@ export function CreateEscrowDialog() {
               <div className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="party1Name"
+                  name="party1Email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Party 1 Name</FormLabel>
+                      <FormLabel>Your Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="TechCorp Solutions Inc." {...field} />
+                        <Input type="email" {...field} disabled />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -149,9 +204,15 @@ export function CreateEscrowDialog() {
                   name="party1Role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Party 1 Role</FormLabel>
+                      <FormLabel>Your Role</FormLabel>
                       <FormControl>
-                        <Input placeholder="Client" {...field} />
+                        <select
+                          {...field}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="buyer">Buyer</option>
+                          <option value="seller">Seller</option>
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -161,12 +222,12 @@ export function CreateEscrowDialog() {
               <div className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="party2Name"
+                  name="party2Email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Party 2 Name</FormLabel>
+                      <FormLabel>Other Party Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="Global Software Services Ltd." {...field} />
+                        <Input type="email" placeholder="partner@example.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -177,9 +238,15 @@ export function CreateEscrowDialog() {
                   name="party2Role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Party 2 Role</FormLabel>
+                      <FormLabel>Other Party Role</FormLabel>
                       <FormControl>
-                        <Input placeholder="Developer" {...field} />
+                        <select
+                          {...field}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="seller">Seller</option>
+                          <option value="buyer">Buyer</option>
+                        </select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
