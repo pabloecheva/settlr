@@ -3,7 +3,8 @@
 Settlr is a modern web application that leverages OpenAI's GPT-4 to automate and streamline the creation of escrow agreements for blockchain transactions, particularly focusing on NFT sales. 
 
 Video  - https://drive.google.com/file/d/1iHG2-uOssL1DLzo3Y8PEDJeAZmKHTyW8/view?usp=sharing
-Slideshow - https://drive.google.com/file/d/1HKu5I8yWYn9Ujy9SE4toAZgs9n_GXfdQ/view?usp=sharing.
+
+Slideshow - https://drive.google.com/file/d/1HKu5I8yWYn9Ujy9SE4toAZgs9n_GXfdQ/view?usp=sharing
 
 ## Features
 
